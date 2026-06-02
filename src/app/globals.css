@@ -1,0 +1,32 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #0c0f14;
+  --foreground: #e8ecf1;
+  --muted: #8b95a5;
+  --card: #141a22;
+  --accent: #3b82f6;
+  --accent-soft: rgba(59, 130, 246, 0.15);
+}
+
+body {
+  color: var(--foreground);
+  background: radial-gradient(1200px 600px at 20% -10%, #1a2440 0%, var(--background) 45%);
+  min-height: 100vh;
+}
+
+@keyframes pomedro-smoke {
+  0% {
+    transform: translate(-50%, 0) scale(0.6);
+    opacity: 0;
+  }
+  18% {
+    opacity: 0.5;
+  }
+  100% {
+    transform: translate(-50%, -52px) scale(1.35);
+    opacity: 0;
+  }
+}
