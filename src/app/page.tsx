@@ -1,8 +1,13 @@
 import Link from "next/link";
+import { SupabaseConfigBanner } from "@/components/SupabaseConfigBanner";
+import { isSupabaseConfigured } from "@/lib/supabase/env-public";
 
 export default function HomePage() {
+  const misconfigured = !isSupabaseConfigured();
+
   return (
     <main className="mx-auto flex min-h-screen max-w-3xl flex-col justify-center gap-10 px-6 py-16">
+      {misconfigured ? <SupabaseConfigBanner /> : null}
       <div className="space-y-4">
         <p className="text-sm uppercase tracking-[0.2em] text-slate-400">Pomodoro + Supabase</p>
         <h1 className="text-4xl font-semibold tracking-tight text-white sm:text-5xl">
@@ -29,9 +34,9 @@ export default function HomePage() {
         </Link>
         <Link
           href="/app"
-          className="rounded-xl px-5 py-3 text-sm font-medium text-slate-400 underline-offset-4 hover:text-white hover:underline"
+          className="rounded-xl bg-slate-800 px-5 py-3 text-sm font-medium text-white transition hover:bg-slate-700"
         >
-          Open app (requires login)
+          Open app
         </Link>
       </div>
     </main>

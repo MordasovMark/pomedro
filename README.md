@@ -22,8 +22,10 @@ Pomodoro timer with Supabase auth, themed visuals (coffee cup, growing tree, cig
 
 Copy `.env.example` to `.env.local` and set:
 
-- `NEXT_PUBLIC_SUPABASE_URL`
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+- `NEXT_PUBLIC_SUPABASE_URL` (Project URL, e.g. `https://xxxx.supabase.co`)
+- One public key: **`NEXT_PUBLIC_SUPABASE_ANON_KEY`** (legacy JWT `anon` `public`) **or** **`NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`** (`sb_publishable_…` from newer dashboard copy-paste)
+
+Dependencies `@supabase/supabase-js` and `@supabase/ssr` are already in this repo; clients live under `src/lib/supabase/` (not `utils/`).
 
 ## 3. Run locally
 
@@ -48,3 +50,12 @@ Saved under key `pomedro-timer-theme` in `localStorage`.
 ## License
 
 MIT.
+
+---
+
+## עברית — משתמשים לא מצליחים להתחבר
+
+1. **משתני סביבה** — בלי `NEXT_PUBLIC_SUPABASE_URL` ומפתח ציבורי (`NEXT_PUBLIC_SUPABASE_ANON_KEY` או `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`) האתר לא יוכל לדבר עם Supabase. מקומית: העתק מ-`.env.example` ל-`.env.local` והדבק מהדשבורד של Supabase → Settings → API. אחרי שינוי — הפעל מחדש `npm run dev`. בפרודקשן (למשל Vercel): הגדר את אותם משתנים בהגדרות הפרויקט ועשה deploy מחדש.
+2. **ספק Auth** — ב-Supabase: Authentication → Providers → **Email** עם סיסמה.
+3. **טבלאות** — הרץ את `supabase/migrations/001_pomodoro_sessions.sql` ב-SQL Editor (נדרש לסטטיסטיקות; לא חובה רק כדי להתחבר).
+4. **אימייל מאושר** — אם בפרויקט מופעל “Confirm email”, אחרי הרשמה צריך לאשר מייל לפני שיש session (אז יופיע הודעה בהרשמה).

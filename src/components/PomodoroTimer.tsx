@@ -5,9 +5,15 @@ import { createClient } from "@/lib/supabase/client";
 import { ThemeSelector } from "@/components/ThemeSelector";
 import { TimerVisual, type Phase, type TimerTheme } from "@/components/TimerVisual";
 
-const WORK_SEC = 25 * 60;
+const DEFAULT_WORK_MIN = 25;
+const WORK_MIN = 5;
+const WORK_MAX = 120;
 const SHORT_BREAK_SEC = 5 * 60;
 const LONG_BREAK_SEC = 15 * 60;
+
+function clampWorkMinutes(value: number) {
+  return Math.min(WORK_MAX, Math.max(WORK_MIN, Math.round(value)));
+}
 
 function formatTime(totalSeconds: number) {
   const m = Math.floor(totalSeconds / 60);
@@ -30,7 +36,8 @@ function phaseLabel(phase: Phase) {
 
 export function PomodoroTimer() {
   const [phase, setPhase] = useState<Phase>("work");
-  const [remaining, setRemaining] = useState(WORK_SEC);
+  const [workMinutes, setWorkMinutes] = useState(DEFAULT_WORK_MIN);
+  const [remaining, setRemaining] = useState(DEFAULT_WORK_MIN * 60);
   const [running, setRunning] = useState(false);
   const [taskLabel, setTaskLabel] = useState("");
   const [theme, setTheme] = useState<TimerTheme>("coffee");
@@ -42,11 +49,13 @@ export function PomodoroTimer() {
   const completedWorkRef = useRef(0);
   const finishingRef = useRef(false);
 
+  const workSec = workMinutes * 60;
+
   const totalForPhase = useMemo(() => {
-    if (phase === "work") return WORK_SEC;
+    if (phase === "work") return workSec;
     if (phase === "long_break") return LONG_BREAK_SEC;
     return SHORT_BREAK_SEC;
-  }, [phase]);
+  }, [phase, workSec]);
 
   const progress = useMemo(() => {
     if (totalForPhase <= 0) return 0;
@@ -84,10 +93,11 @@ export function PomodoroTimer() {
           } = await supabase.auth.getUser();
           if (user) {
             const end = Date.now();
-            const startMs = workStartedAtRef.current ?? end - WORK_SEC * 1000;
+            const capSec = workMinutes * 60;
+            const startMs = workStartedAtRef.current ?? end - capSec * 1000;
             const duration_seconds = Math.max(
               1,
-              Math.min(WORK_SEC, Math.round((end - startMs) / 1000)),
+              Math.min(capSec, Math.round((end - startMs) / 1000)),
             );
             const { error } = await supabase.from("pomodoro_sessions").insert({
               user_id: user.id,
@@ -113,14 +123,14 @@ export function PomodoroTimer() {
         setRunning(true);
       } else {
         setPhase("work");
-        setRemaining(WORK_SEC);
+        setRemaining(workMinutes * 60);
         setRunning(false);
         workStartedAtRef.current = null;
       }
     } finally {
       finishingRef.current = false;
     }
-  }, [phase, taskLabel]);
+  }, [phase, taskLabel, workMinutes]);
 
   useEffect(() => {
     if (!running || remaining > 0) return;
@@ -140,7 +150,9 @@ export function PomodoroTimer() {
 
   function resetPhaseTimer() {
     setRunning(false);
-    setRemaining(phase === "work" ? WORK_SEC : phase === "long_break" ? LONG_BREAK_SEC : SHORT_BREAK_SEC);
+    setRemaining(
+      phase === "work" ? workMinutes * 60 : phase === "long_break" ? LONG_BREAK_SEC : SHORT_BREAK_SEC,
+    );
     if (phase === "work") {
       workStartedAtRef.current = null;
     }
@@ -170,11 +182,56 @@ export function PomodoroTimer() {
               </p>
               <p className="mt-2 text-xs text-slate-500">
                 {phase === "work"
-                  ? "25m work · breaks 5m, long 15m every 4th completion"
+                  ? `${workMinutes}m focus · breaks 5m, long 15m every 4th completion`
                   : phase === "long_break"
                     ? "Long break — stretch and reset"
                     : "Short break — breathe"}
               </p>
+              <div className="mt-4 flex flex-wrap items-center gap-3">
+                <label className="flex min-w-[12rem] flex-1 flex-col gap-1 text-xs text-slate-400">
+                  <span className="text-slate-300">Focus length (minutes)</span>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="range"
+                      min={WORK_MIN}
+                      max={WORK_MAX}
+                      step={1}
+                      value={workMinutes}
+                      disabled={phase === "work" && running}
+                      onChange={(e) => {
+                        const next = clampWorkMinutes(Number(e.target.value));
+                        setWorkMinutes(next);
+                        if (phase === "work" && !running) {
+                          setRemaining(next * 60);
+                        }
+                      }}
+                      className="h-2 w-full min-w-[8rem] cursor-pointer accent-sky-500 disabled:cursor-not-allowed disabled:opacity-50"
+                    />
+                    <input
+                      type="number"
+                      min={WORK_MIN}
+                      max={WORK_MAX}
+                      step={1}
+                      value={workMinutes}
+                      disabled={phase === "work" && running}
+                      onChange={(e) => {
+                        const raw = Number(e.target.value);
+                        if (Number.isNaN(raw)) return;
+                        const next = clampWorkMinutes(raw);
+                        setWorkMinutes(next);
+                        if (phase === "work" && !running) {
+                          setRemaining(next * 60);
+                        }
+                      }}
+                      className="w-16 rounded-lg border border-slate-700 bg-slate-950 px-2 py-1 text-center text-sm text-white tabular-nums outline-none ring-sky-500/30 focus:ring-2 disabled:opacity-50"
+                      aria-label="Focus length in minutes"
+                    />
+                  </div>
+                  <span className="text-[11px] text-slate-500">
+                    {WORK_MIN}–{WORK_MAX} minutes{phase === "work" && running ? " · pause to adjust" : ""}
+                  </span>
+                </label>
+              </div>
             </div>
             <div className="flex flex-wrap gap-2">
               <button
@@ -213,7 +270,7 @@ export function PomodoroTimer() {
         <div className="rounded-2xl border border-slate-800 bg-slate-900/30 p-4 text-sm text-slate-400">
           <p className="font-medium text-slate-200">Rhythm</p>
           <ul className="mt-2 list-disc space-y-1 pl-4">
-            <li>Completing a work Pomodoro saves a row to Supabase (RLS).</li>
+            <li>Completing a work block saves to Supabase when you are signed in (RLS).</li>
             <li>After four finished work blocks, the next break is 15 minutes.</li>
             <li>Breaks start automatically; a new work block waits for Start.</li>
           </ul>

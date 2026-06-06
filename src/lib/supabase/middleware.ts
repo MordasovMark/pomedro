@@ -1,6 +1,8 @@
-import { createServerClient } from "@supabase/ssr";
+import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { getSupabasePublicEnv } from "@/lib/supabase/env-public";
+
+type CookieToSet = { name: string; value: string; options: CookieOptions };
 
 export async function updateSession(request: NextRequest) {
   let supabaseUrl: string;
@@ -8,12 +10,6 @@ export async function updateSession(request: NextRequest) {
   try {
     ({ url: supabaseUrl, anonKey: supabaseAnonKey } = getSupabasePublicEnv());
   } catch {
-    if (request.nextUrl.pathname.startsWith("/app")) {
-      const u = request.nextUrl.clone();
-      u.pathname = "/login";
-      u.searchParams.set("config", "1");
-      return NextResponse.redirect(u);
-    }
     return NextResponse.next({ request });
   }
 
@@ -29,7 +25,7 @@ export async function updateSession(request: NextRequest) {
         getAll() {
           return request.cookies.getAll();
         },
-        setAll(cookiesToSet) {
+        setAll(cookiesToSet: CookieToSet[]) {
           cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
           supabaseResponse = NextResponse.next({
             request,
@@ -45,13 +41,6 @@ export async function updateSession(request: NextRequest) {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-
-  if (request.nextUrl.pathname.startsWith("/app") && !user) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/login";
-    url.searchParams.set("redirect", request.nextUrl.pathname);
-    return NextResponse.redirect(url);
-  }
 
   if (
     user &&

@@ -46,3 +46,18 @@ body {
     opacity: 0;
   }
 }
+
+/* Pixel-art cigarette smoke: discrete drift + rise */
+@keyframes pomedro-pixel-smoke {
+  0% {
+    opacity: 0;
+    transform: translate(0, 6px);
+  }
+  12% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(var(--smoke-dx, 0px), var(--smoke-dy, -56px));
+  }
+}

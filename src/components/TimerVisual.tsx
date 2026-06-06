@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, type CSSProperties, type ReactNode } from "react";
 
 export type TimerTheme = "coffee" | "tree" | "cigarette";
 export type Phase = "work" | "short_break" | "long_break";
@@ -165,18 +165,138 @@ function GrowingTree({ progress, reducedMotion }: { progress: number; reducedMot
   );
 }
 
-function SmokePuff({ delay, reducedMotion }: { delay: number; reducedMotion: boolean }) {
+/** Solid pixel colors matching reference art */
+const CIG_FILTER = "#f9a602";
+const CIG_PAPER = "#f2efe4";
+const CIG_ASH = "#4b4b4b";
+const CIG_EMBER = "#ff3b00";
+
+const PIX = 8;
+const FILTER_COLS = 4;
+const BODY_COLS = 24;
+const ASH_COLS = 1;
+const EMBER_COLS = 1;
+const CIG_ROWS = 3;
+const TOTAL_COLS = FILTER_COLS + BODY_COLS + ASH_COLS + EMBER_COLS;
+
+/** Smoke voxels: ox = cells left from tip, oy = cells up from tip; dx/dy = end drift (cell units) */
+const SMOKE_PIXELS: { ox: number; oy: number; color: string; delay: number; dx: number; dy: number }[] = [
+  { ox: 0, oy: 0, color: "#a8a8a8", delay: 0, dx: 0, dy: -9 },
+  { ox: 1, oy: 1, color: "#808080", delay: 60, dx: 2, dy: -11 },
+  { ox: 0, oy: 2, color: "#9ca3af", delay: 120, dx: -3, dy: -12 },
+  { ox: -1, oy: 2, color: "#6b7280", delay: 180, dx: 1, dy: -14 },
+  { ox: 2, oy: 1, color: "#d1d5db", delay: 100, dx: 4, dy: -10 },
+  { ox: -1, oy: 3, color: "#78716c", delay: 200, dx: -2, dy: -15 },
+  { ox: 1, oy: 3, color: "#a3a3a3", delay: 260, dx: 3, dy: -16 },
+  { ox: 0, oy: 4, color: "#737373", delay: 320, dx: 0, dy: -18 },
+  { ox: -1, oy: 4, color: "#57534e", delay: 380, dx: -4, dy: -17 },
+  { ox: 2, oy: 4, color: "#d4d4d4", delay: 280, dx: 5, dy: -14 },
+  { ox: 1, oy: 5, color: "#a8a8a8", delay: 440, dx: 2, dy: -20 },
+  { ox: 0, oy: 6, color: "#9ca3af", delay: 500, dx: 0, dy: -22 },
+  { ox: -1, oy: 5, color: "#71717a", delay: 400, dx: -3, dy: -19 },
+  { ox: 2, oy: 6, color: "#e5e5e5", delay: 520, dx: 6, dy: -18 },
+];
+
+function CigarettePixelGrid({
+  progress,
+  workCompleteSmoke,
+}: {
+  progress: number;
+  workCompleteSmoke: boolean;
+}) {
+  const p = clamp01(progress);
+  const emberGlow = workCompleteSmoke ? 1 : 0.28 + p * 0.72;
+
+  const cells: ReactNode[] = [];
+  for (let r = 0; r < CIG_ROWS; r++) {
+    for (let c = 0; c < TOTAL_COLS; c++) {
+      let bg = CIG_PAPER;
+      if (c < FILTER_COLS) bg = CIG_FILTER;
+      else if (c < FILTER_COLS + BODY_COLS) bg = CIG_PAPER;
+      else if (c < FILTER_COLS + BODY_COLS + ASH_COLS) bg = CIG_ASH;
+      else bg = CIG_EMBER;
+
+      const isEmber = c >= FILTER_COLS + BODY_COLS + ASH_COLS;
+      cells.push(
+        <div
+          key={`${r}-${c}`}
+          className="box-border shrink-0 border-0"
+          style={{
+            width: PIX,
+            height: PIX,
+            backgroundColor: bg,
+            opacity: isEmber ? emberGlow : 1,
+            imageRendering: "pixelated",
+          }}
+          aria-hidden
+        />,
+      );
+    }
+  }
+
+  const w = TOTAL_COLS * PIX;
+  const h = CIG_ROWS * PIX;
+
   return (
-    <span
-      className="pointer-events-none absolute bottom-8 left-1/2 h-10 w-10 -translate-x-1/2 rounded-full bg-slate-200/25 blur-md"
-      style={
-        reducedMotion
-          ? { opacity: 0.35 }
-          : {
-              animation: `pomedro-smoke 2.4s ease-out ${delay}ms forwards`,
-            }
-      }
-    />
+    <div
+      className="grid gap-0 overflow-visible border border-slate-600/80 shadow-[2px_2px_0_0_rgba(0,0,0,0.35)]"
+      style={{
+        gridTemplateColumns: `repeat(${TOTAL_COLS}, ${PIX}px)`,
+        gridTemplateRows: `repeat(${CIG_ROWS}, ${PIX}px)`,
+        width: w,
+        height: h,
+        imageRendering: "pixelated",
+      }}
+    >
+      {cells}
+    </div>
+  );
+}
+
+function CigarettePixelSmoke({
+  reducedMotion,
+  active,
+}: {
+  reducedMotion: boolean;
+  active: boolean;
+}) {
+  if (!active) return null;
+
+  const smokeH = 12 * PIX;
+
+  return (
+    <div
+      className="pointer-events-none absolute bottom-full left-0 z-10 overflow-visible"
+      style={{
+        width: TOTAL_COLS * PIX,
+        height: smokeH,
+        imageRendering: "pixelated",
+      }}
+      aria-hidden
+    >
+      {SMOKE_PIXELS.map((s, i) => {
+        const vars = {
+          "--smoke-dx": `${s.dx * PIX}px`,
+          "--smoke-dy": `${s.dy * PIX}px`,
+        } as CSSProperties;
+        const style: CSSProperties = {
+          position: "absolute",
+          right: s.ox * PIX,
+          bottom: s.oy * PIX,
+          width: PIX,
+          height: PIX,
+          backgroundColor: s.color,
+          imageRendering: "pixelated",
+          ...vars,
+        };
+        if (reducedMotion) {
+          style.opacity = 0.9;
+        } else {
+          style.animation = `pomedro-pixel-smoke 2.35s ease-out ${s.delay}ms forwards`;
+        }
+        return <div key={i} style={style} />;
+      })}
+    </div>
   );
 }
 
@@ -189,31 +309,11 @@ function CigaretteBreak({
   workCompleteSmoke: boolean;
   reducedMotion: boolean;
 }) {
-  const p = clamp01(progress);
-  const lit = workCompleteSmoke;
-
   return (
     <div className="relative mx-auto flex h-56 w-full max-w-sm flex-col items-center justify-end pb-6">
-      <div className="relative flex w-56 items-center">
-        {workCompleteSmoke ? (
-          <div className="pointer-events-none absolute -top-10 left-1/2 h-24 w-24 -translate-x-1/2">
-            {!reducedMotion ? (
-              <>
-                <SmokePuff delay={0} reducedMotion={reducedMotion} />
-                <SmokePuff delay={220} reducedMotion={reducedMotion} />
-                <SmokePuff delay={440} reducedMotion={reducedMotion} />
-              </>
-            ) : (
-              <span className="absolute bottom-0 left-1/2 h-12 w-16 -translate-x-1/2 rounded-full bg-slate-300/20 blur-lg" />
-            )}
-          </div>
-        ) : null}
-        <div className="h-2 w-40 rounded-full bg-gradient-to-r from-slate-700 via-slate-200 to-amber-100 shadow-inner" />
-        <div
-          className="absolute right-10 h-3 w-3 rounded-full bg-orange-500 shadow-[0_0_18px_rgba(251,146,60,0.9)] transition-opacity duration-300"
-          style={{ opacity: lit ? 1 : 0.15 + p * 0.35 }}
-          aria-hidden
-        />
+      <div className="relative inline-block">
+        <CigarettePixelSmoke reducedMotion={reducedMotion} active={workCompleteSmoke} />
+        <CigarettePixelGrid progress={progress} workCompleteSmoke={workCompleteSmoke} />
       </div>
       <p className="mt-4 text-center text-xs text-slate-500">
         Stylized prop — not endorsing smoking. Smoke appears briefly after a finished work block.

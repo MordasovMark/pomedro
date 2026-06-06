@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
+import type { User } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
 
 const links = [
@@ -12,11 +14,40 @@ const links = [
 export function AppHeader() {
   const pathname = usePathname();
   const router = useRouter();
+  const [user, setUser] = useState<User | null | undefined>(undefined);
+
+  const supabase = useMemo(() => {
+    try {
+      return createClient();
+    } catch {
+      return null;
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!supabase) {
+      setUser(null);
+      return;
+    }
+    let cancelled = false;
+    void supabase.auth.getUser().then(({ data }) => {
+      if (!cancelled) setUser(data.user ?? null);
+    });
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+    });
+    return () => {
+      cancelled = true;
+      subscription.unsubscribe();
+    };
+  }, [supabase]);
 
   async function signOut() {
-    const supabase = createClient();
+    if (!supabase) return;
     await supabase.auth.signOut();
-    router.replace("/login");
+    router.replace("/");
     router.refresh();
   }
 
@@ -42,13 +73,33 @@ export function AppHeader() {
             );
           })}
         </nav>
-        <button
-          type="button"
-          onClick={() => void signOut()}
-          className="rounded-lg border border-slate-700 px-3 py-2 text-xs font-medium text-slate-200 transition hover:border-slate-500 sm:text-sm"
-        >
-          Sign out
-        </button>
+        <div className="flex shrink-0 items-center gap-2">
+          {supabase && user === null ? (
+            <>
+              <Link
+                href="/login"
+                className="rounded-lg border border-slate-700 px-3 py-2 text-xs font-medium text-slate-200 transition hover:border-slate-500 sm:text-sm"
+              >
+                Sign in
+              </Link>
+              <Link
+                href="/signup"
+                className="rounded-lg bg-sky-500 px-3 py-2 text-xs font-semibold text-slate-950 transition hover:bg-sky-400 sm:text-sm"
+              >
+                Sign up
+              </Link>
+            </>
+          ) : null}
+          {supabase && user ? (
+            <button
+              type="button"
+              onClick={() => void signOut()}
+              className="rounded-lg border border-slate-700 px-3 py-2 text-xs font-medium text-slate-200 transition hover:border-slate-500 sm:text-sm"
+            >
+              Sign out
+            </button>
+          ) : null}
+        </div>
       </div>
     </header>
   );
