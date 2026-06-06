@@ -17,6 +17,22 @@ body {
   min-height: 100vh;
 }
 
+@keyframes pixel-coffee-steam {
+  0%,
+  100% {
+    opacity: 0.55;
+    transform: translateY(0);
+  }
+  50% {
+    opacity: 1;
+    transform: translateY(-1px);
+  }
+}
+
+.pixel-coffee-steam {
+  animation: pixel-coffee-steam 2.4s ease-in-out infinite;
+}
+
 @keyframes pomedro-smoke {
   0% {
     transform: translate(-50%, 0) scale(0.6);
